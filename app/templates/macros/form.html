@@ -1,0 +1,35 @@
+{% macro render_form(form_data, fields, action, method='post', title='Form') %}
+<div class="modal-overlay">
+    <div class="modal-content">
+        <form onsubmit="submitForm(event, this)" action="{{ action }}" method="post">
+            <input type="hidden" name="_method" value="{{ method }}">
+
+            <h2>
+                {% if method == 'patch' %}
+                    Update Record
+                {% else %}
+                    Add Record
+                {% endif %}
+            </h2>
+
+            {% for name, field in fields.items() %}
+                <label>{{ field.title or name }}</label>
+                <input
+                    type="text"
+                    name="{{ name }}"
+                    value="{{ form_data.get(name, '') }}"
+                >
+            {% endfor %}
+
+            <button type="submit">
+                {% if method == 'patch' %}
+                    Update
+                {% else %}
+                    Create
+                {% endif %}
+            </button>
+            <button type="button" onclick="closeModal()">Cancel</button>
+        </form>
+    </div>
+</div>
+{% endmacro %}

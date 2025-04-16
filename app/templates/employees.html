@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Manager</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="/static/main.js" defer></script>
+</head>
+<body data-model="employees" style="position: relative;">  <!-- root has relative positioning -->
+
+    <h1>Employees</h1>
+    <button onclick="openAddModal()">Add Employee</button>
+
+    <!-- ✅ This must only be the table, nothing more -->
+    <div id="employees-table" hx-get="/employees/table" hx-trigger="load" hx-swap="innerHTML"></div>
+
+    <!-- ✅ This must be the very last div in the body and NOT inside #employee-table -->
+    <div id="modal"></div>
+
+</body>
+</html>
