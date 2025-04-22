@@ -1,29 +1,28 @@
-{# app/templates/macros/table.html #}
-{% macro render_table(records, fields, editable=False) %}
+{% macro render_table(records, fields, model_name, editable=False) %}
 <table>
     <thead>
         <tr>
             {% for field in fields %}
-            <th>{{ field.replace('_', ' ') | capitalize }}</th>
+                <th>{{ field.replace('_', ' ') | capitalize }}</th>
             {% endfor %}
             {% if editable %}
-            <th>Actions</th>
+                <th>Actions</th>
             {% endif %}
         </tr>
     </thead>
     <tbody>
         {% for record in records %}
-        <tr>
-            {% for field in fields %}
-            <td>{{ record.__getattribute__(field) }}</td>
-            {% endfor %}
-            {% if editable %}
-            <td>
-                <button onclick="openEditModal({{ record.id }})">Edit</button>
-                <button onclick="deleteRecord({{ record.id }})">Delete</button>
-            </td>
-            {% endif %}
-        </tr>
+            <tr>
+                {% for field in fields %}
+                    <td>{{ record[field] }}</td>
+                {% endfor %}
+                {% if editable %}
+                    <td>
+                        <button onclick="openEditModal({{ record.id }})">Edit</button>
+                        <button onclick="deleteRecord({{ record.id }})">Delete</button>
+                    </td>
+                {% endif %}
+            </tr>
         {% endfor %}
     </tbody>
 </table>

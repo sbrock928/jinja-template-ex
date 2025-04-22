@@ -1,0 +1,37 @@
+<!-- app/templates/model_page.html -->
+{% extends "content/layout.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ model_title }} Manager</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="/static/main.js" defer></script>
+</head>
+<body data-model="{{ model_name }}" style="position: relative;">
+
+
+<div class="header-buttons"><a href="/resources" class="back-button">← Back to Resources</a></div>
+
+<div class="header-buttons"><h2>{{ model_title }}s</h2></div>
+
+
+<button onclick="openAddModal()" class = "btn-primary">Add {{ model_title }}</button>
+    <div id="{{ model_name }}-table"></div>
+
+    <div id="modal"></div>
+
+</body>
+</html>
+{% endblock %}
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const model = getModel();
+        if (model) {
+            htmx.ajax('GET', `/${model}/table`, `#${model}-table`);
+        }
+    });
+</script>
+{% endblock %}

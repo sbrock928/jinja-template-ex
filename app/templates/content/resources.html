@@ -1,0 +1,17 @@
+<!-- app/templates/home.html -->
+{% extends "content/layout.html" %}
+
+{% block title %}Resources{% endblock %}
+
+{% block content %}
+<h1>Available Models</h1>
+
+<div class="model-list">
+    {% for model in models %}
+        <div class="model-card">
+            <h2>{{ model.title }}</h2>
+            <a href="/{{ model.name }}" class="btn-primary">Manage {{ model.title }}s</a>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

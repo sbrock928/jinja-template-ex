@@ -1,34 +1,48 @@
-{% macro render_form(form_data, fields, action, method='post', title='Form') %}
+{% macro render_form(form_data, fields, model_name, method, record_id=None, title=None) %}
 <div class="modal-overlay">
     <div class="modal-content">
-        <form onsubmit="submitForm(event, this)" action="{{ action }}" method="post">
-            <input type="hidden" name="_method" value="{{ method }}">
-
-            <h2>
-                {% if method == 'patch' %}
-                    Update Record
-                {% else %}
-                    Add Record
-                {% endif %}
-            </h2>
-
-            {% for name, field in fields.items() %}
-                <label>{{ field.title or name }}</label>
-                <input
-                    type="text"
-                    name="{{ name }}"
-                    value="{{ form_data.get(name, '') }}"
-                >
+        {% if title %}
+            <h2>{{ title }}</h2>
+        {% endif %}
+        <button type="button" onclick="closeModal()" class="close-button">&times;</button>
+        
+        <form
+            id="{{ model_name }}-form"
+            action="/api/{{ model_name }}{% if record_id %}/{{ record_id }}{% endif %}"
+            method="POST"
+            onsubmit="submitForm(event, this);"
+        >
+            <input type="hidden" name="_model" value="{{ model_name }}">
+            {% if record_id %}
+                <input type="hidden" name="_method" value="PATCH">
+            {% endif %}
+            
+            {% for field_name, field in fields.items() %}
+                <div class="form-group">
+                    <label for="{{ field_name }}">
+                        {{ field.title or field_name | replace('_', ' ') | title }}
+                        {% if field.is_required %}
+                            <span class="required">*</span>
+                        {% endif %}
+                    </label>
+                    
+                    <input
+                        type="{% if field.annotation.__name__ == 'int' %}number{% else %}text{% endif %}"
+                        id="{{ field_name }}"
+                        name="{{ field_name }}"
+                        value="{{ form_data[field_name] or '' }}"
+                        {% if field.description %}placeholder="{{ field.description }}"{% endif %}
+                        {% if field.is_required %}required{% endif %}
+                    >
+                    
+                    <div class="error-msg" id="{{ field_name }}-error"></div>
+                </div>
             {% endfor %}
-
-            <button type="submit">
-                {% if method == 'patch' %}
-                    Update
-                {% else %}
-                    Create
-                {% endif %}
-            </button>
-            <button type="button" onclick="closeModal()">Cancel</button>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" onclick="closeModal()" class="btn-secondary">Cancel</button>
+            </div>
         </form>
     </div>
 </div>
