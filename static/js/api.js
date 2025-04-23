@@ -117,3 +117,32 @@ export async function deleteItem(modelName, itemId) {
 
     return response.json();
 }
+
+/**
+ * Handle API error response
+ * @param {Response} response API response
+ * @returns {Promise<Object>} Error data
+ */
+export async function handleApiError(response) {
+    let errorData;
+    try {
+        errorData = await response.json();
+    } catch (e) {
+        errorData = {
+            detail: response.statusText || 'An unexpected error occurred'
+        };
+    }
+    throw errorData;
+}
+
+/**
+ * Process API response
+ * @param {Response} response API response
+ * @returns {Promise<any>} Response data
+ */
+export async function processApiResponse(response) {
+    if (!response.ok) {
+        await handleApiError(response);
+    }
+    return response.json();
+}

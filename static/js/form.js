@@ -84,9 +84,6 @@ export function validateForm(model) {
     const formData = {};
     let isValid = true;
 
-    // Synchronize datepicker values with inputs
-    synchronizeDatepickerValues();
-
     // Validate each field and collect form data
     model.fields.forEach(field => {
         if (!field.editable) return;
@@ -100,21 +97,40 @@ export function validateForm(model) {
             return;
         }
 
-        // Validate field
-        const customValidator = getValidatorForField(field);
-        const fieldIsValid = validateField(inputElement, customValidator);
-
-        // Update form validity
-        isValid = isValid && fieldIsValid;
-
-        // Add field value to form data
+        // Special handling for date fields
         if (field.type === 'date') {
-            // For date fields, only include if they have a value (to handle optional dates)
-            if (inputElement.value.trim()) {
-                formData[field.name] = inputElement.value;
+            // For optional date fields, allow empty values
+            if (!field.required && !inputElement.value.trim()) {
+                formData[field.name] = null;
+                return;
+            }
+
+            // For required date fields or fields with values, validate the date
+            const datePickerInstance = datePickerInstances.find(picker => 
+                picker.element && picker.element.id === inputElement.id
+            );
+
+            if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
+                const selectedDate = datePickerInstance.selectedDates[0];
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const day = String(selectedDate.getDate()).padStart(2, '0');
+                formData[field.name] = `${year}-${month}-${day}`;
+            } else if (field.required) {
+                inputElement.classList.add('is-invalid');
+                isValid = false;
+                return;
             }
         } else {
-            formData[field.name] = inputElement.value;
+            // Validate non-date fields
+            const customValidator = getValidatorForField(field);
+            const fieldIsValid = validateField(inputElement, customValidator);
+            isValid = isValid && fieldIsValid;
+
+            // Add field value to form data if it's valid
+            if (fieldIsValid && inputElement.value.trim()) {
+                formData[field.name] = inputElement.value;
+            }
         }
     });
 
@@ -148,9 +164,41 @@ function synchronizeDatepickerValues() {
  * @returns {Function|null} Validator function
  */
 function getValidatorForField(field) {
+    // Set up validator based on field type
     if (field.type === 'email') {
         return validateEmail;
     } else if (field.type === 'date') {
+        // Initialize datepicker for the field
+        const input = document.getElementById(`item-${field.name}`);
+        if (input) {
+            const datePicker = flatpickr(input, {
+                dateFormat: "Y-m-d",
+                allowInput: true,
+                altInput: true,
+                altFormat: "F j, Y",
+                onChange: function(selectedDates, dateStr) {
+                    validateField(input);
+                    input.value = dateStr;
+                }
+            });
+
+            // Store the datepicker instance
+            if (!window.datePickerInstances) {
+                window.datePickerInstances = [];
+            }
+            window.datePickerInstances.push(datePicker);
+
+            // Add calendar icon click handler
+            const parentGroup = input.closest('.date-input-group');
+            if (parentGroup) {
+                const calendarIcon = parentGroup.querySelector('.calendar-icon');
+                if (calendarIcon) {
+                    calendarIcon.addEventListener('click', () => {
+                        datePicker.open();
+                    });
+                }
+            }
+        }
         return validateDate;
     }
 

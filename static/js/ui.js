@@ -137,9 +137,16 @@ export function initializeDatepickers() {
             allowInput: true,
             altInput: true,
             altFormat: "F j, Y",
+            monthSelectorType: 'static',
+            disableMobile: true,
             onChange: function(selectedDates, dateStr) {
-                // Make sure the input has the value
+                // Make sure the input has the value in YYYY-MM-DD format
                 input.value = dateStr;
+                // Validate the field
+                const parentGroup = input.closest('.date-input-group');
+                if (parentGroup) {
+                    input.classList.remove('is-invalid');
+                }
             }
         });
 
@@ -156,21 +163,12 @@ export function initializeDatepickers() {
 
         // Store the datepicker instance for cleanup
         datePickerInstances.push(datePicker);
-    });
 
-    // Expose function to initialize a specific datepicker with a value
-    window.initializeDatepicker = function(inputElement, dateValue) {
-        const datePicker = datePickerInstances.find(picker =>
-            picker.element && picker.element.id === inputElement.id
-        );
-
-        if (datePicker) {
-            datePicker.setDate(dateValue);
-
-            // Also make sure the input field has the value
-            inputElement.value = dateValue;
+        // If there's an initial value, set it
+        if (input.value) {
+            datePicker.setDate(input.value, true);
         }
-    };
+    });
 }
 
 /**
@@ -299,7 +297,7 @@ export function buildItemForm(model, enumOptions) {
 
         // Create input based on field type
         let input;
-
+        console.log(field, field.type)
         if (field.type === 'boolean') {
             // Create checkbox for boolean fields
             fieldDiv.className = 'mb-3 form-check form-check-lg';
@@ -451,24 +449,4 @@ export function showLoading() {
  */
 export function hideLoading() {
     document.getElementById('loading-spinner').classList.add('d-none');
-}
-
-/**
- * Format date with time
- * @param {string} dateString Date string
- * @returns {string} Formatted date
- */
-export function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleString();
-}
-
-/**
- * Format date only (without time)
- * @param {string} dateString Date string
- * @returns {string} Formatted date
- */
-export function formatDateOnly(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
 }

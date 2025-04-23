@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from app.models.models import BaseModelSchema
 from app.db.db import InMemoryDB
 from datetime import datetime
+from functools import wraps
+from fastapi import HTTPException
+from typing import Callable
 
 # Type variables for our generic router
 T = TypeVar("T", bound=BaseModelSchema)
@@ -17,6 +20,23 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total: int
     skip: int
     limit: int
+
+
+def handle_route_errors(func: Callable):
+    """Decorator to handle common route errors"""
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except HTTPException:
+            # Re-raise FastAPI's own HTTP exceptions
+            raise
+        except Exception as e:
+            # Convert other exceptions to 500 errors
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return wrapper
 
 
 class RouterFactory(Generic[T, CreateT, UpdateT]):
@@ -64,6 +84,7 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
 
         # Create operation
         @router.post("/", response_model=self.model_cls)
+        @handle_route_errors
         async def create_item(item: self.create_schema):
             # Convert Pydantic model to dict
             item_data = item.model_dump()
@@ -85,6 +106,7 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
 
         # Read all operation
         @router.get("/", response_model=PaginatedResponse[self.model_cls])
+        @handle_route_errors
         async def get_items(
             skip: int = Query(default=0, ge=0),
             limit: int = Query(default=10, ge=1, le=100),
@@ -94,11 +116,13 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
 
         # Read one operation
         @router.get("/{item_id}", response_model=self.model_cls)
+        @handle_route_errors
         async def get_item(item: self.model_cls = Depends(self.get_item_dependency)):
             return item
 
         # Update operation
         @router.patch("/{item_id}", response_model=self.model_cls)
+        @handle_route_errors
         async def update_item(
             update_data: self.update_schema,
             item: self.model_cls = Depends(self.get_item_dependency),
@@ -120,6 +144,7 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
 
         # Delete operation
         @router.delete("/{item_id}")
+        @handle_route_errors
         async def delete_item(item: self.model_cls = Depends(self.get_item_dependency)):
             success = self.db.delete(item.id)
             if success:

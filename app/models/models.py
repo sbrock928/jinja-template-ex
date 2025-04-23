@@ -18,6 +18,18 @@ class EmployeePosition(str, Enum):
     VICE_PRESIDENT = "Vice President"
     EXECUTIVE = "Executive"
 
+    @classmethod
+    def _missing_(cls, value):
+        # Handle conversion from frontend format
+        if isinstance(value, str):
+            # Try matching by normalized value (convert spaces to underscores)
+            normalized = value.replace(" ", "_").upper()
+            try:
+                return cls[normalized]
+            except KeyError:
+                pass
+        return None
+
 
 # Generic base class for all models
 class BaseModelSchema(BaseModel):

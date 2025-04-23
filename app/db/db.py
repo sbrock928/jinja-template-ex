@@ -12,6 +12,16 @@ class InMemoryDB(Generic[T]):
     def __init__(self):
         self.data: Dict[str, T] = {}
 
+    def _add_timestamps(
+        self, data: Dict[str, Any], is_update: bool = False
+    ) -> Dict[str, Any]:
+        """Add or update timestamps in data dictionary"""
+        current_time = datetime.now()
+        if not is_update:
+            data["created_at"] = current_time
+        data["updated_at"] = current_time
+        return data
+
     def create(self, item: T) -> T:
         if not hasattr(item, "id"):
             raise ValueError("Item must have an id field")
@@ -42,7 +52,7 @@ class InMemoryDB(Generic[T]):
         current_item = self.data[item_id]
 
         # Add updated_at timestamp
-        update_data["updated_at"] = datetime.now()
+        update_data = self._add_timestamps(update_data, is_update=True)
 
         # Create updated item using model_update method
         updated_item = current_item.model_update(**update_data)

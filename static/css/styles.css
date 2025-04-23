@@ -48,6 +48,8 @@ body {
 /* Date picker styles */
 .date-input-group {
     position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .date-input-group .form-control {
@@ -79,6 +81,44 @@ body {
 
 .flatpickr-day.today {
     border-color: #0d6efd;
+}
+
+/* Date input styling */
+.calendar-icon {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+    z-index: 3;
+    color: #6c757d;
+}
+
+.calendar-icon:hover {
+    color: #495057;
+}
+
+/* Flatpickr calendar styling */
+.flatpickr-calendar {
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.flatpickr-current-month {
+    padding-top: 0 !important;
+}
+
+.flatpickr-day.selected {
+    background: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+.flatpickr-day:hover {
+    background: #e9ecef;
+}
+
+/* Make sure the calendar appears above other elements */
+.flatpickr-calendar.open {
+    z-index: 9999 !important;
 }
 
 /* Sidebar styles */

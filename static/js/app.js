@@ -412,8 +412,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         itemFormModalTitle.textContent = `Add New ${model.display_name.slice(0, -1)}`;
         saveItemBtn.textContent = 'Add';
 
-        // Build form
-        buildItemForm(false);  // Pass false for create mode
+        // Build form with model metadata
+        buildItemForm(model);
 
         // Show modal
         itemFormModal.show();
@@ -429,9 +429,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
         datePickerInstances = [];
 
-        // Find all date input fields in the form
+        // Find all date and datetime input fields in the form
         const dateInputs = document.querySelectorAll('input[data-type="date"]');
-
+        
         // Initialize a datepicker for each date field
         dateInputs.forEach(input => {
             const datePicker = flatpickr(input, {
@@ -439,10 +439,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 allowInput: true,
                 altInput: true,
                 altFormat: "F j, Y",
+                monthSelectorType: 'static',
+                disableMobile: true, // Ensures consistent behavior across devices
                 onChange: function(selectedDates, dateStr) {
                     // Validate the field on change
                     validateField(input);
-
                     // Make sure the hidden input gets the value
                     input.value = dateStr;
                 }
@@ -465,11 +466,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Build dynamic form for the active model
-    function buildItemForm(isEdit = false) {
+    function buildItemForm(model) {
         formFieldsContainer.innerHTML = '';
         formValidators = {};
-
-        const model = getModelMetadata(activeModel);
 
         model.fields.forEach(field => {
             // Skip non-editable fields and timestamp fields
@@ -492,6 +491,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (field.type === 'enum') {
                 // Create select element for enum fields
+                fieldDiv.appendChild(label);
                 input = document.createElement('select');
                 input.className = 'form-select';
                 input.id = fieldId;
@@ -503,8 +503,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Add placeholder option
                 const placeholderOption = document.createElement('option');
                 placeholderOption.value = '';
-                placeholderOption.textContent = `Select ${field.display_name}...`;
-                placeholderOption.disabled = true;
+                placeholderOption.textContent = field.required ? 
+                    `Select ${field.display_name}...` : 'None';
+                if (field.required) {
+                    placeholderOption.disabled = true;
+                }
                 placeholderOption.selected = true;
                 input.appendChild(placeholderOption);
 
@@ -518,7 +521,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     });
                 }
 
-                fieldDiv.appendChild(label);
                 fieldDiv.appendChild(input);
             } else if (field.type === 'boolean') {
                 // Create checkbox for boolean fields
@@ -544,9 +546,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 input.type = 'text';
                 input.className = 'form-control';
                 input.id = fieldId;
-                input.placeholder = 'YYYY-MM-DD';
-                input.setAttribute('data-type', 'date'); // Add attribute to identify date fields
-
+                input.placeholder = field.required ? 'Select date...' : 'None';
+                input.setAttribute('data-type', 'date');
+                input.setAttribute('data-optional', !field.required);
+                
                 if (field.required) {
                     input.required = true;
                 }
@@ -557,7 +560,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 inputGroup.appendChild(input);
                 inputGroup.appendChild(calendarIcon);
-
                 fieldDiv.appendChild(inputGroup);
 
                 // Setup date validation
@@ -679,7 +681,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         // transferred to their input fields
         datePickerInstances.forEach(picker => {
             if (picker && picker.element) {
-                // Ensure the main input has the date value in YYYY-MM-DD format
+                // For optional date fields, if there's no date selected, ensure the input is cleared
+                if (picker.selectedDates.length === 0 && picker.element.getAttribute('data-optional') === 'true') {
+                    picker.element.value = '';
+                    return;
+                }
+
+                // For selected dates, ensure the main input has the date value in YYYY-MM-DD format
                 const selectedDate = picker.selectedDates[0];
                 if (selectedDate) {
                     const year = selectedDate.getFullYear();
@@ -708,11 +716,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (field.type === 'boolean') {
                 itemData[field.name] = inputElement.checked;
             } else if (field.type === 'date') {
-                // For date fields, only include if they have a value (to handle optional dates)
+                // For optional date fields, only include if they have a value
                 if (inputElement.value.trim()) {
-                    // Make sure we're sending the ISO format YYYY-MM-DD
                     itemData[field.name] = inputElement.value;
+                } else if (!field.required) {
+                    // For empty optional date fields, explicitly set to null
+                    itemData[field.name] = null;
                 }
+            } else if (!field.required && !inputElement.value.trim()) {
+                // For other optional fields, exclude empty values from the payload
+                // This prevents sending empty strings for optional fields
+                return;
             } else {
                 itemData[field.name] = inputElement.value;
             }
@@ -946,33 +960,30 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const item = await response.json();
 
-            // Build the form
-            buildItemForm(true);  // Pass true for edit mode
-
             // Set form values
             itemIdInput.value = item.id;
 
             const model = getModelMetadata(activeModel);
+            
+            // Build the form first
+            buildItemForm(model);
 
-            // Set values for non-date fields immediately
+            // Set values after form is built
             model.fields.forEach(field => {
-                if (!field.editable || field.type === 'date') return;
+                if (!field.editable) return;
 
                 const inputElement = document.getElementById(`item-${field.name}`);
                 if (!inputElement) return;
 
                 if (field.type === 'boolean') {
                     inputElement.checked = item[field.name];
+                } else if (field.type === 'date') {
+                    // For date fields, store the value as a data attribute
+                    if (item[field.name]) {
+                        inputElement.setAttribute('data-initial-date', item[field.name]);
+                    }
                 } else {
-                    inputElement.value = item[field.name];
-                }
-            });
-
-            // Store date values to be set after datepickers are initialized
-            const dateValues = {};
-            model.fields.forEach(field => {
-                if (field.editable && field.type === 'date' && item[field.name]) {
-                    dateValues[`item-${field.name}`] = item[field.name];
+                    inputElement.value = item[field.name] ?? '';
                 }
             });
 
@@ -984,30 +995,34 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Show modal
             itemFormModal.show();
 
-            // After modal is shown and datepickers are initialized, set date values
+            // After modal is shown, initialize datepickers and set values
             itemFormModalEl.addEventListener('shown.bs.modal', function setDateValues() {
-                // Wait for datepickers to initialize
-                setTimeout(() => {
-                    // Set values for date fields
-                    for (const [fieldId, dateValue] of Object.entries(dateValues)) {
-                        const datePicker = datePickerInstances.find(picker =>
-                            picker.element && picker.element.id === fieldId
-                        );
-                        if (datePicker) {
-                            datePicker.setDate(dateValue);
+                // Initialize datepickers first
+                initializeDatepickers();
 
-                            // Also make sure the input field has the value
-                            const inputElement = document.getElementById(fieldId);
-                            if (inputElement) {
-                                inputElement.value = dateValue;
+                // Then set values for date fields
+                model.fields.forEach(field => {
+                    if (field.editable && field.type === 'date') {
+                        const inputElement = document.getElementById(`item-${field.name}`);
+                        const initialDate = inputElement?.getAttribute('data-initial-date');
+                        if (inputElement && initialDate) {
+                            // Find the corresponding datepicker instance
+                            const datePicker = datePickerInstances.find(picker =>
+                                picker.element && picker.element.id === inputElement.id
+                            );
+                            if (datePicker) {
+                                datePicker.setDate(initialDate);
+                                inputElement.value = initialDate;
                             }
+                            // Clear the temporary attribute
+                            inputElement.removeAttribute('data-initial-date');
                         }
                     }
-                }, 100);
+                });
 
                 // Remove this one-time event listener
                 itemFormModalEl.removeEventListener('shown.bs.modal', setDateValues);
-            });
+            }, { once: true }); // Use once:true to ensure the listener is removed after execution
 
             hideLoading();
         } catch (error) {
