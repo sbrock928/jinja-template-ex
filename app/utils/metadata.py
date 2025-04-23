@@ -1,6 +1,7 @@
 from typing import Type, List, Dict, Any, Optional
 from pydantic import BaseModel
 from enum import Enum
+from datetime import date
 import inspect
 
 
@@ -39,7 +40,12 @@ def generate_model_metadata(
 
     for field_name, field in model_cls.model_fields.items():
         # Determine if field is required
-        is_required = field_name in required_fields and not field.default
+        is_required = (
+            field_name in required_fields
+            and not field.default
+            and field.annotation != Optional[date]  # Add this check
+            and not getattr(field, "is_optional", False)  # Add this check
+        )
 
         # Determine field type
         field_type = "text"  # default
