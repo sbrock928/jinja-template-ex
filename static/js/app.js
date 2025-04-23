@@ -1,5 +1,5 @@
 // static/app.js
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // DOM elements - Core UI
     const sidebarMenu = document.getElementById('sidebar-menu');
     const contentContainer = document.getElementById('content-container');
@@ -33,6 +33,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const toast = new bootstrap.Toast(document.getElementById('toast'));
     const toastTitle = document.getElementById('toast-title');
     const toastMessage = document.getElementById('toast-message');
+
+    // Add these variables at the top of your file
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalItems = 0;
+
+    // Set initial page size from select
+    const pageSizeSelect = document.getElementById('page-size');
+    if (pageSizeSelect) {
+        pageSize = parseInt(pageSizeSelect.value);
+    }
 
     // State variables
     let activeModel = null; // Current active model
@@ -177,13 +188,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load items for the active model
     async function loadItems() {
         try {
-            const response = await fetch(`/api/${activeModel}/`);
+            showLoading();
+            const skip = (currentPage - 1) * pageSize;
+            const response = await fetch(`/api/${activeModel}/?skip=${skip}&limit=${pageSize}`);
+            
             if (!response.ok) {
                 throw new Error(`Failed to fetch ${activeModel}`);
             }
 
-            const items = await response.json();
-            renderItems(items);
+            const data = await response.json();
+            totalItems = data.total;
+            renderItems(data.items);
+            renderPagination();
+            hideLoading();
         } catch (error) {
             console.error(`Error loading ${activeModel}:`, error);
             contentContainer.innerHTML = `
@@ -192,12 +209,111 @@ document.addEventListener('DOMContentLoaded', function() {
                     Failed to load data. Please try again later.
                 </div>
             `;
+            hideLoading();
         }
+    }
+
+    function renderPagination() {
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const paginationEl = document.getElementById('pagination');
+        const paginationInfo = document.getElementById('pagination-info');
+        
+        // Update pagination info
+        const start = ((currentPage - 1) * pageSize) + 1;
+        const end = Math.min(currentPage * pageSize, totalItems);
+        paginationInfo.textContent = `Showing ${start}-${end} of ${totalItems}`;
+        
+        // Generate pagination buttons
+        let html = '';
+        
+        // First page button
+        html += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="1" aria-label="First page">
+                    <i class="bi bi-chevron-double-left"></i>
+                </a>
+            </li>
+        `;
+        
+        // Previous button
+        html += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${currentPage - 1}" aria-label="Previous">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+        `;
+        
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            if (
+                i === 1 || // First page
+                i === totalPages || // Last page
+                (i >= currentPage - 2 && i <= currentPage + 2) // Pages around current
+            ) {
+                html += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            } else if (
+                i === currentPage - 3 ||
+                i === currentPage + 3
+            ) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+        
+        // Next button
+        html += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${currentPage + 1}" aria-label="Next">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        `;
+        
+        // Last page button
+        html += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${totalPages}" aria-label="Last page">
+                    <i class="bi bi-chevron-double-right"></i>
+                </a>
+            </li>
+        `;
+        
+        paginationEl.innerHTML = html;
+        
+        // Add event listeners to all pagination buttons
+        paginationEl.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const newPage = parseInt(e.target.closest('.page-link').dataset.page);
+                if (!isNaN(newPage) && newPage !== currentPage) {
+                    currentPage = newPage;
+                    loadItems();
+                }
+            });
+        });
+
+        // Add page size change handler
+        document.getElementById('page-size').addEventListener('change', (e) => {
+            pageSize = parseInt(e.target.value);
+            currentPage = 1;  // Reset to first page
+            loadItems();
+        });
     }
 
     // Render items table
     function renderItems(items) {
         const model = getModelMetadata(activeModel);
+
+        // Reorder fields to put updated_at last
+        const orderedFields = [...model.fields].sort((a, b) => {
+            if (a.name === 'updated_at') return 1;
+            if (b.name === 'updated_at') return -1;
+            return 0;
+        });
 
         // Create table
         const tableHtml = `
@@ -210,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <table class="table table-striped table-hover">
                             <thead>
                                 <tr>
-                                    ${model.fields.map(field =>
+                                    ${orderedFields.map(field =>
                                         `<th>${field.display_name}</th>`
                                     ).join('')}
                                     <th>Actions</th>
@@ -218,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </thead>
                             <tbody id="items-table-body">
                                 ${items.length === 0 ?
-                                    `<tr><td colspan="${model.fields.length + 1}" class="text-center">No ${model.display_name.toLowerCase()} found</td></tr>` :
+                                    `<tr><td colspan="${orderedFields.length + 1}" class="text-center">No ${model.display_name.toLowerCase()} found</td></tr>` :
                                     ''}
                             </tbody>
                         </table>
@@ -235,15 +351,17 @@ document.addEventListener('DOMContentLoaded', function() {
             items.forEach(item => {
                 const row = document.createElement('tr');
 
-                // Add data cells
-                model.fields.forEach(field => {
+                // Add data cells in the new order
+                orderedFields.forEach(field => {
                     const cell = document.createElement('td');
 
                     if (field.name === 'id') {
                         cell.innerHTML = `<span class="badge bg-secondary">${item[field.name].substring(0, 8)}...</span>`;
-                    } else if (field.type === 'datetime') {
-                        cell.textContent = item[field.name] ? formatDate(item[field.name]) : '-';
+                    } else if (field.type === 'datetime' || field.name === 'updated_at') {
+                        // Show full date and time for datetime fields and updated_at
+                        cell.textContent = item[field.name] ? formatDateTime(item[field.name]) : '-';
                     } else if (field.type === 'date') {
+                        // Show only date for date fields
                         cell.textContent = item[field.name] ? formatDateOnly(item[field.name]) : '-';
                     } else if (field.type === 'boolean') {
                         cell.innerHTML = item[field.name] ?
@@ -273,6 +391,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Add this new formatter function
+    function formatDateTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
     // Open modal to add new item
     function openAddItemModal() {
         const model = getModelMetadata(activeModel);
@@ -282,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveItemBtn.textContent = 'Add';
 
         // Build form
-        buildItemForm();
+        buildItemForm(false);  // Pass false for create mode
 
         // Show modal
         itemFormModal.show();
@@ -334,14 +465,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Build dynamic form for the active model
-    function buildItemForm() {
+    function buildItemForm(isEdit = false) {
         formFieldsContainer.innerHTML = '';
         formValidators = {};
 
         const model = getModelMetadata(activeModel);
 
         model.fields.forEach(field => {
+            // Skip non-editable fields and timestamp fields
             if (!field.editable) return;
+            if (field.name === 'created_at' || field.name === 'updated_at') return;
 
             const fieldId = `item-${field.name}`;
             const fieldDiv = document.createElement('div');
@@ -814,7 +947,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = await response.json();
 
             // Build the form
-            buildItemForm();
+            buildItemForm(true);  // Pass true for edit mode
 
             // Set form values
             itemIdInput.value = item.id;

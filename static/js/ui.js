@@ -3,6 +3,22 @@
 // Global references to UI components
 let datePickerInstances = [];
 
+// Add this helper function at the top of the file
+function getEnumBadgeClass(index, total) {
+    // Define a set of bootstrap color classes
+    const colorClasses = [
+        'bg-primary',
+        'bg-success',
+        'bg-info',
+        'bg-warning text-dark',
+        'bg-danger',
+        'bg-secondary'
+    ];
+    
+    // Use modulo to cycle through colors if there are more enum values than colors
+    return colorClasses[index % colorClasses.length];
+}
+
 /**
  * Setup UI components
  * @param {Array} modelMetadata Model metadata
@@ -209,6 +225,19 @@ export function renderItems(items, model, editCallback, deleteCallback) {
 
                 if (field.name === 'id') {
                     cell.innerHTML = `<span class="badge bg-secondary">${item[field.name].substring(0, 8)}...</span>`;
+                } else if (field.type === 'enum') {
+                    const value = item[field.name] || '-';
+                    
+                    // Find the option index to determine color
+                    const optionIndex = field.options?.findIndex(opt => 
+                        opt.value === value || opt.name === value
+                    ) ?? -1;
+                    
+                    const badgeClass = optionIndex >= 0 ? 
+                        getEnumBadgeClass(optionIndex, field.options?.length ?? 0) : 
+                        'bg-secondary';
+
+                    cell.innerHTML = `<span class="badge ${badgeClass}">${value}</span>`;
                 } else if (field.type === 'datetime') {
                     cell.textContent = item[field.name] ? formatDate(item[field.name]) : '-';
                 } else if (field.type === 'date') {
@@ -217,25 +246,6 @@ export function renderItems(items, model, editCallback, deleteCallback) {
                     cell.innerHTML = item[field.name] ?
                         '<span class="badge bg-success">Yes</span>' :
                         '<span class="badge bg-secondary">No</span>';
-                } else if (field.type === 'enum') {
-                    // For enum fields, add a badge with a color
-                    const value = item[field.name] || '-';
-
-                    // Choose a color based on the position value
-                    let badgeClass = 'bg-secondary';
-                    if (field.name === 'position') {
-                        if (value.includes('Manager') || value.includes('Director') || value.includes('Executive')) {
-                            badgeClass = 'bg-primary';
-                        } else if (value.includes('Senior')) {
-                            badgeClass = 'bg-info';
-                        } else if (value.includes('Associate')) {
-                            badgeClass = 'bg-success';
-                        } else if (value.includes('Analyst')) {
-                            badgeClass = 'bg-warning text-dark';
-                        }
-                    }
-
-                    cell.innerHTML = `<span class="badge ${badgeClass}">${value}</span>`;
                 } else {
                     cell.textContent = item[field.name];
                 }

@@ -1,14 +1,22 @@
 # router_factory.py
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Generic, TypeVar, Type, List, Dict, Any, Optional, Callable
 from pydantic import BaseModel
 from app.models.models import BaseModelSchema
 from app.db.db import InMemoryDB
+from datetime import datetime
 
 # Type variables for our generic router
 T = TypeVar("T", bound=BaseModelSchema)
 CreateT = TypeVar("CreateT", bound=BaseModel)
 UpdateT = TypeVar("UpdateT", bound=BaseModel)
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    skip: int
+    limit: int
 
 
 class RouterFactory(Generic[T, CreateT, UpdateT]):
@@ -56,15 +64,33 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
 
         # Create operation
         @router.post("/", response_model=self.model_cls)
-        async def create_item(item_data: self.create_schema):
-            # Create a new instance of the model
-            new_item = self.model_cls(**item_data.dict())
-            return self.db.create(new_item)
+        async def create_item(item: self.create_schema):
+            # Convert Pydantic model to dict
+            item_data = item.model_dump()
+
+            # Add required fields for new items
+            current_time = datetime.now()
+            additional_fields = {
+                "id": str(current_time.timestamp()),
+                "created_at": current_time,
+                "updated_at": current_time,
+            }
+
+            # Create new item with all fields
+            new_item = self.model_cls(**item_data, **additional_fields)
+
+            # Save to database
+            created_item = self.db.create(new_item)
+            return created_item
 
         # Read all operation
-        @router.get("/", response_model=List[self.model_cls])
-        async def get_items():
-            return self.db.get_all()
+        @router.get("/", response_model=PaginatedResponse[self.model_cls])
+        async def get_items(
+            skip: int = Query(default=0, ge=0),
+            limit: int = Query(default=10, ge=1, le=100),
+        ):
+            items, total_count = self.db.get_all(skip=skip, limit=limit)
+            return {"items": items, "total": total_count, "skip": skip, "limit": limit}
 
         # Read one operation
         @router.get("/{item_id}", response_model=self.model_cls)
@@ -79,6 +105,7 @@ class RouterFactory(Generic[T, CreateT, UpdateT]):
         ):
             # Filter out unset fields
             update_dict = update_data.dict(exclude_unset=True)
+            update_dict["updated_at"] = datetime.now()
 
             if not update_dict:
                 raise HTTPException(status_code=400, detail="No fields to update")

@@ -21,6 +21,7 @@ from app.models.models import (
 )
 from app.db.db import user_db, employee_db, subscriber_db
 from app.routes.router_factory import RouterFactory
+from app.utils.metadata import generate_model_metadata
 
 
 def create_app() -> FastAPI:
@@ -78,166 +79,39 @@ def create_app() -> FastAPI:
     # Metadata endpoint
     @app.get("/api/metadata")
     async def get_metadata():
-        print("Metadata endpoint called")  # Add this line
-        return {
-            "models": [
-                {
-                    "name": "users",
-                    "display_name": "Users",
-                    "icon": "bi-people-fill",
-                    "fields": [
-                        {
-                            "name": "id",
-                            "display_name": "ID",
-                            "type": "text",
-                            "editable": False,
-                        },
-                        {
-                            "name": "first_name",
-                            "display_name": "First Name",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "last_name",
-                            "display_name": "Last Name",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "email",
-                            "display_name": "Email",
-                            "type": "email",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "created_at",
-                            "display_name": "Created At",
-                            "type": "datetime",
-                            "editable": False,
-                        },
-                    ],
-                },
-                {
-                    "name": "employees",
-                    "display_name": "Employees",
-                    "icon": "bi-briefcase-fill",
-                    "fields": [
-                        {
-                            "name": "id",
-                            "display_name": "ID",
-                            "type": "text",
-                            "editable": False,
-                        },
-                        {
-                            "name": "first_name",
-                            "display_name": "First Name",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "last_name",
-                            "display_name": "Last Name",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "email",
-                            "display_name": "Email",
-                            "type": "email",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "department",
-                            "display_name": "Department",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "position",
-                            "display_name": "Position",
-                            "type": "enum",
-                            "editable": True,
-                            "required": True,
-                            "options": [
-                                {
-                                    "value": pos.value,
-                                    "name": pos.name.replace("_", " ").title(),
-                                }
-                                for pos in EmployeePosition
-                            ],
-                        },
-                        {
-                            "name": "hire_date",
-                            "display_name": "Hire Date",
-                            "type": "date",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "created_at",
-                            "display_name": "Created At",
-                            "type": "datetime",
-                            "editable": False,
-                        },
-                    ],
-                },
-                {
-                    "name": "subscribers",
-                    "display_name": "Subscribers",
-                    "icon": "bi-envelope-check-fill",
-                    "fields": [
-                        {
-                            "name": "id",
-                            "display_name": "ID",
-                            "type": "text",
-                            "editable": False,
-                        },
-                        {
-                            "name": "name",
-                            "display_name": "Name",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "email",
-                            "display_name": "Email",
-                            "type": "email",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "subscription_type",
-                            "display_name": "Subscription Type",
-                            "type": "text",
-                            "editable": True,
-                            "required": True,
-                        },
-                        {
-                            "name": "is_active",
-                            "display_name": "Active",
-                            "type": "boolean",
-                            "editable": True,
-                            "required": False,
-                        },
-                        {
-                            "name": "created_at",
-                            "display_name": "Created At",
-                            "type": "datetime",
-                            "editable": False,
-                        },
-                    ],
-                },
-            ]
+        print("Metadata endpoint called")
+
+        # Define model configurations
+        models_config = [
+            {
+                "name": "users",
+                "model_cls": User,
+                "create_schema": UserCreate,
+                "icon": "bi-people-fill",
+                "enum_fields": {},
+            },
+            {
+                "name": "employees",
+                "model_cls": Employee,
+                "create_schema": EmployeeCreate,
+                "icon": "bi-briefcase-fill",
+                "enum_fields": {"position": EmployeePosition},
+            },
+            {
+                "name": "subscribers",
+                "model_cls": Subscriber,
+                "create_schema": SubscriberCreate,
+                "icon": "bi-envelope-check-fill",
+                "enum_fields": {},
+            },
+        ]
+
+        # Generate metadata for each model
+        metadata = {
+            "models": [generate_model_metadata(**config) for config in models_config]
         }
+
+        return metadata
 
     # Add startup event
     @app.on_event("startup")
@@ -246,6 +120,48 @@ def create_app() -> FastAPI:
         sample_users = [
             UserCreate(
                 first_name="John", last_name="Doe", email="john.doe@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
+            ),
+            UserCreate(
+                first_name="Jane", last_name="Smith", email="jane.smith@example.com"
             ),
             UserCreate(
                 first_name="Jane", last_name="Smith", email="jane.smith@example.com"

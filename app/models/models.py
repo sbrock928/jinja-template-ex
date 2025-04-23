@@ -21,9 +21,30 @@ class EmployeePosition(str, Enum):
 
 # Generic base class for all models
 class BaseModelSchema(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    def model_update(self, **kwargs):
+        # Create a new dict with current values
+        current_data = self.model_dump()
+        # Update with new values
+        current_data.update(kwargs)
+        # Return a new instance
+        return self.__class__(**current_data)
+
+
+# Base class for database models with update method
+class BaseDBModel(BaseModel):
+    id: str
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+    def update(self, **kwargs):
+        kwargs["updated_at"] = datetime.now()
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
 
 # User models
