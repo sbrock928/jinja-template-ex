@@ -61,10 +61,7 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-# Endpoint to get enum values
-@app.get("/api/enums/employee-positions", response_model=List[dict])
-async def get_employee_positions():
-    return [{"value": pos.value, "name": pos.value} for pos in EmployeePosition]
+
 
 
 # Add model metadata for frontend
@@ -100,8 +97,17 @@ async def get_metadata():
                     {"name": "email", "display_name": "Email", "type": "email", "editable": True, "required": True},
                     {"name": "department", "display_name": "Department", "type": "text", "editable": True,
                      "required": True},
-                    {"name": "position", "display_name": "Position", "type": "enum", "enum_name": "employee-positions",
-                     "editable": True, "required": True},
+                    {
+                        "name": "position",
+                        "display_name": "Position",
+                        "type": "enum",
+                        "editable": True,
+                        "required": True,
+                        "options": [
+                            {"value": pos.value, "name": pos.name.replace('_', ' ').title()} 
+                            for pos in EmployeePosition
+                        ]
+                    },
                     {"name": "hire_date", "display_name": "Hire Date", "type": "date", "editable": True,
                      "required": True},
                     {"name": "contract_end_date", "display_name": "Contract End Date", "type": "date", "editable": True,

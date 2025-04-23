@@ -340,16 +340,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const model = getModelMetadata(activeModel);
 
-        // Create form fields based on model metadata
         model.fields.forEach(field => {
-            // Skip non-editable fields
             if (!field.editable) return;
 
             const fieldId = `item-${field.name}`;
             const fieldDiv = document.createElement('div');
             fieldDiv.className = 'mb-3';
 
-            // Create label
             const label = document.createElement('label');
             label.htmlFor = fieldId;
             label.className = 'form-label';
@@ -358,10 +355,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 label.innerHTML += ' <span class="text-danger">*</span>';
             }
 
-            // Create input based on field type
             let input;
 
-            if (field.type === 'boolean') {
+            if (field.type === 'enum') {
+                // Create select element for enum fields
+                input = document.createElement('select');
+                input.className = 'form-select';
+                input.id = fieldId;
+
+                if (field.required) {
+                    input.required = true;
+                }
+
+                // Add placeholder option
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = '';
+                placeholderOption.textContent = `Select ${field.display_name}...`;
+                placeholderOption.disabled = true;
+                placeholderOption.selected = true;
+                input.appendChild(placeholderOption);
+
+                // Add enum options
+                if (field.options && Array.isArray(field.options)) {
+                    field.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option.value;
+                        optionElement.textContent = option.name;
+                        input.appendChild(optionElement);
+                    });
+                }
+
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(input);
+            } else if (field.type === 'boolean') {
                 // Create checkbox for boolean fields
                 fieldDiv.className = 'mb-3 form-check form-check-lg';
 
